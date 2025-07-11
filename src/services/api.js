@@ -1,10 +1,11 @@
 // API Service for Google Sheets Integration
 // Updated with your Google Apps Script deployment URL and CORS handling
 
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycby6mQjZdeCreMvwhs0BoJN7BIFDBMM5YXF-AUcSSXuxSXu0j_Bf1ZuthjAcwrAglivR/exec';
+const API_BASE_URL = import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycby6mQjZdeCreMvwhs0BoJN7BIFDBMM5YXF-AUcSSXuxSXu0j_Bf1ZuthjAcwrAglivR/exec';
 
-// Check if we're in development mode
+// Check if we're in development mode or if we should use mock data
 const isDevelopment = process.env.NODE_ENV === 'development';
+const useMockData = isDevelopment || import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 // Mock data storage for development
 let mockData = {
@@ -80,11 +81,14 @@ let mockData = {
 export const api = {
   async request(action, data = null) {
     try {
-      // In development, use mock data for now due to CORS issues
-      if (isDevelopment) {
+      // Use mock data only if explicitly configured to do so
+      if (useMockData) {
         console.log(`Using mock data for ${action}`);
         return getMockData(action, data);
       }
+
+      // Try to use Google Sheets API
+      console.log(`Using Google Sheets API for ${action}`);
 
       const url = `${API_BASE_URL}?action=${action}`;
       
@@ -123,13 +127,15 @@ export const api = {
     } catch (error) {
       console.error('API request failed:', error);
       
-      // Return mock data for development if API fails
-      if (isDevelopment) {
-        console.log('Returning mock data due to API failure');
-        return getMockData(action, data);
+      // In production, we should show an error instead of silently falling back
+      if (!isDevelopment) {
+        console.error('Google Sheets API failed in production:', error);
+        throw new Error(`Failed to connect to Google Sheets: ${error.message}`);
       }
       
-      throw error;
+      // In development, fallback to mock data
+      console.log('Falling back to mock data due to API failure');
+      return getMockData(action, data);
     }
   },
   
